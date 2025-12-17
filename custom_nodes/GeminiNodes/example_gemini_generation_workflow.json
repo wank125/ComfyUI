@@ -1,0 +1,153 @@
+{
+  "last_node_id": 5,
+  "last_link_id": 4,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "GeminiImageGenerator",
+      "pos": [50, 50],
+      "size": {"0": 400, "1": 300},
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [1],
+          "shape": 3,
+          "slot_index": 0
+        },
+        {
+          "name": "metadata",
+          "type": "STRING",
+          "links": [2],
+          "shape": 3,
+          "slot_index": 1
+        },
+        {
+          "name": "api_response",
+          "type": "DICT",
+          "links": [],
+          "shape": 3,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GeminiImageGenerator"
+      },
+      "widgets_values": [
+        "sk-QCIDiQb4iJChmTr4ngGVlRnBk4wFndoIFOGjMLQsxXxd3GGI",
+        "A sacred, ancient deity with an ethereal and untouchable presence, the physical embodiment of the Elven faith, conveying non-human perfection, emotional distance, and divine authority.\n\nAppearance:\n- Long silver hair flowing to the waist, woven like moonlight and softly glowing with faint starlight\n- Pale, almost translucent skin\n- Perfectly symmetrical and refined facial features\n- Deep violet eyes, vast and profound, resembling a contained starry sky\n\nClothing:\n- Divine robe woven from starlight and silver threads\n- Light and flowing, gently floating even without wind\n- Living runes subtly shimmering and moving across the fabric\n- Soft, calm, pure silver aura surrounding the body\n\nExpression and details:\n- Serene and compassionate expression with a subtle, knowing smile\n- Movements slow, graceful, and deliberate\n- Presence inspiring reverence and quiet awe\n\nAtmosphere:\n- Sacred, tranquil, celestial\n- High fantasy, divine light, soft glow",
+        "16:9",
+        "2K",
+        1,
+        60,
+        -1,
+        "",
+        "https://xiaoai.plus/v1beta/models"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "PreviewImage",
+      "pos": [500, 50],
+      "size": {"0": 210, "1": 246},
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 3,
+      "type": "SaveImage",
+      "pos": [740, 50],
+      "size": {"0": 315, "1": 270},
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "name": "filename_prefix",
+          "type": "STRING",
+          "link": 3
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": ["gemini_"]
+    },
+    {
+      "id": 4,
+      "type": "String Literal",
+      "pos": [500, 320],
+      "size": {"0": 210, "1": 60},
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [3],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "String Literal"
+      },
+      "widgets_values": ["gemini_deity_"]
+    },
+    {
+      "id": 5,
+      "type": "Text Display",
+      "pos": [740, 340],
+      "size": {"0": 400, "1": 200},
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "Text Display"
+      }
+    }
+  ],
+  "links": [
+    [1, 1, 0, 2, 0, "IMAGE"],
+    [1, 1, 0, 3, 0, "IMAGE"],
+    [2, 1, 1, 5, 0, "STRING"],
+    [3, 4, 0, 3, 1, "STRING"]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1,
+      "offset": [0, 0]
+    }
+  },
+  "version": 0.4
+}
