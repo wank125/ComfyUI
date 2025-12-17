@@ -25,23 +25,31 @@ This ComfyUI custom node package provides functionality to parse and extract con
 Main node for parsing Gemini API JSON responses.
 
 **Inputs:**
-- `json_data`: JSON string from Gemini API (multiline text)
 - `extract_images`: Boolean to enable/disable image extraction
 - `extract_text`: Boolean to enable/disable text extraction
 - `output_format`: Choose between "tensor" or "pil" format
+- `json_data`: JSON string from Gemini API (optional when using file mode)
+- `json_file`: Path to JSON file containing Gemini API response
+- `input_mode`: Choose between "direct" (use json_data) or "file" (use json_file)
 
 **Outputs:**
 - `images`: Tensor of extracted images (B, C, H, W format)
 - `text`: Combined text content from all parts
 - `metadata`: Dictionary containing extraction statistics and information
 
+**Usage:**
+- **Direct Mode**: Paste JSON string directly into `json_data` field
+- **File Mode**: Set `input_mode` to "file" and provide file path in `json_file` field
+
 ### Gemini Image Extractor
 
 Specialized node for extracting only images from Gemini responses.
 
 **Inputs:**
-- `json_data`: JSON string from Gemini API
 - `output_format`: Choose between "tensor" or "pil" format
+- `json_data`: JSON string from Gemini API (optional when using file mode)
+- `json_file`: Path to JSON file containing response
+- `input_mode`: Choose between "direct" or "file"
 
 **Outputs:**
 - `images`: Tensor of extracted images
@@ -52,8 +60,10 @@ Specialized node for extracting only images from Gemini responses.
 Specialized node for extracting only text from Gemini responses.
 
 **Inputs:**
-- `json_data`: JSON string from Gemini API
 - `include_metadata`: Boolean to include usage metadata in output
+- `json_data`: JSON string from Gemini API (optional when using file mode)
+- `json_file`: Path to JSON file containing response
+- `input_mode`: Choose between "direct" or "file"
 
 **Outputs:**
 - `text`: Combined text content
@@ -64,8 +74,10 @@ Specialized node for extracting only text from Gemini responses.
 Analyze the structure of Gemini API responses without extracting content.
 
 **Inputs:**
-- `json_data`: JSON string from Gemini API
 - `detailed_analysis`: Boolean to enable detailed candidate analysis
+- `json_data`: JSON string from Gemini API (optional when using file mode)
+- `json_file`: Path to JSON file containing response
+- `input_mode`: Choose between "direct" or "file"
 
 **Outputs:**
 - `analysis`: Dictionary with complete response structure analysis

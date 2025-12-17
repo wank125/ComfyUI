@@ -1,0 +1,39 @@
+{
+  "modelVersion": "gemini-2.5-flash-image-preview",
+  "responseId": "resp_1234567890",
+  "usageMetadata": {
+    "totalTokenCount": 85,
+    "promptTokenCount": 50,
+    "candidatesTokenCount": 35,
+    "candidatesTokensDetails": [
+      {
+        "modality": "IMAGE",
+        "tokenCount": 25
+      },
+      {
+        "modality": "TEXT",
+        "tokenCount": 10
+      }
+    ]
+  },
+  "candidates": [
+    {
+      "index": 0,
+      "finishReason": "STOP",
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "I've created a beautiful sunset landscape for you."
+          },
+          {
+            "inlineData": {
+              "mimeType": "image/png",
+              "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

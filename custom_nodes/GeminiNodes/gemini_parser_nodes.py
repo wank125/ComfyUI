@@ -17,10 +17,14 @@ class GeminiResponseParser:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "json_data": ("STRING", {"multiline": True}),
                 "extract_images": ("BOOLEAN", {"default": True}),
                 "extract_text": ("BOOLEAN", {"default": True}),
                 "output_format": (["tensor", "pil"], {"default": "tensor"}),
+            },
+            "optional": {
+                "json_data": ("STRING", {"multiline": True, "default": ""}),
+                "json_file": ("STRING", {"default": "", "tooltip": "Path to JSON file containing Gemini API response"}),
+                "input_mode": (["direct", "file"], {"default": "direct"}),
             }
         }
 
@@ -30,33 +34,76 @@ class GeminiResponseParser:
     CATEGORY = "API/Gemini"
     DESCRIPTION = "解析Google Gemini API的JSON响应，提取图像和文本内容。支持base64图像解码和全面的元数据提取。当您需要处理包含文本和图像的完整Gemini API响应时使用此节点。"
 
-    def parse_response(self, json_data: str, extract_images: bool,
-                      extract_text: bool, output_format: str):
+    def parse_response(self, extract_images: bool, extract_text: bool, output_format: str,
+                      json_data: str = "", json_file: str = "", input_mode: str = "direct"):
         """
         Parse Gemini API JSON response and extract images and text.
 
         Args:
-            json_data: JSON string from Gemini API response
             extract_images: Whether to extract images
             extract_text: Whether to extract text
             output_format: Output format for images ("tensor" or "pil")
+            json_data: JSON string from Gemini API response
+            json_file: Path to JSON file containing response
+            input_mode: "direct" for json_data, "file" for json_file
 
         Returns:
             Tuple of (image_tensor, text_content, metadata_dict)
         """
+        # Load JSON data based on input mode
         try:
-            data = json.loads(json_data)
+            if input_mode == "file":
+                # Load from file
+                if not json_file:
+                    error_msg = "Error: File path is empty when input_mode is 'file'"
+                    return (torch.zeros((0, 3, 512, 512)), error_msg, {'error': error_msg})
 
-            images = []
-            text_parts = []
-            metadata = {
-                'total_images': 0,
-                'total_text_parts': 0,
-                'model_version': data.get('modelVersion', 'Unknown'),
-                'response_id': data.get('responseId', 'Unknown'),
-                'usage_metadata': data.get('usageMetadata', {}),
-                'extracted_images': []
+                try:
+                    with open(json_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    logging.info(f"Successfully loaded JSON from file: {json_file}")
+                except FileNotFoundError:
+                    error_msg = f"Error: File not found: {json_file}"
+                    return (torch.zeros((0, 3, 512, 512)), error_msg, {'error': error_msg})
+                except json.JSONDecodeError as e:
+                    error_msg = f"Error: Invalid JSON in file {json_file}: {str(e)}"
+                    return (torch.zeros((0, 3, 512, 512)), error_msg, {'error': error_msg})
+                except Exception as e:
+                    error_msg = f"Error reading file {json_file}: {str(e)}"
+                    return (torch.zeros((0, 3, 512, 512)), error_msg, {'error': error_msg})
+            else:
+                # Load from direct input
+                if not json_data.strip():
+                    error_msg = "Error: JSON data is empty when input_mode is 'direct'"
+                    return (torch.zeros((0, 3, 512, 512)), error_msg, {'error': error_msg})
+
+                data = json.loads(json_data)
+
+            # Add source information to metadata
+            source_info = {
+                'input_mode': input_mode,
+                'source': json_file if input_mode == "file" else "direct_input"
             }
+
+        except json.JSONDecodeError as e:
+            error_msg = f"Invalid JSON format: {str(e)}"
+            return (torch.zeros((0, 3, 512, 512)), error_msg, {'error': error_msg})
+        except Exception as e:
+            error_msg = f"Error parsing response: {str(e)}"
+            return (torch.zeros((0, 3, 512, 512)), error_msg, {'error': error_msg})
+
+        # Process the loaded data
+        images = []
+        text_parts = []
+        metadata = {
+            'total_images': 0,
+            'total_text_parts': 0,
+            'model_version': data.get('modelVersion', 'Unknown'),
+            'response_id': data.get('responseId', 'Unknown'),
+            'usage_metadata': data.get('usageMetadata', {}),
+            'extracted_images': [],
+            **source_info  # Add source information
+        }
 
             if 'candidates' in data:
                 for cand_idx, candidate in enumerate(data['candidates']):
@@ -211,8 +258,12 @@ class GeminiImageExtractor:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "json_data": ("STRING", {"multiline": True}),
                 "output_format": (["tensor", "pil"], {"default": "tensor"}),
+            },
+            "optional": {
+                "json_data": ("STRING", {"multiline": True, "default": ""}),
+                "json_file": ("STRING", {"default": "", "tooltip": "Path to JSON file containing Gemini API response"}),
+                "input_mode": (["direct", "file"], {"default": "direct"}),
             }
         }
 
@@ -220,12 +271,19 @@ class GeminiImageExtractor:
     RETURN_NAMES = ("images", "image_info")
     FUNCTION = "extract_images"
     CATEGORY = "API/Gemini"
-    DESCRIPTION = "仅从Gemini API响应中提取图像。针对只需要视觉内容的工作流进行了优化。支持多种图像格式，并提供包括大小和格式信息的详细图像元数据。"
+    DESCRIPTION = "仅从Gemini API响应中提取图像。针对只需要视觉内容的工作流进行了优化。支持多种图像格式，并提供包括大小和格式信息的详细图像元数据。支持直接输入JSON字符串或从文件加载。"
 
-    def extract_images(self, json_data: str, output_format: str):
+    def extract_images(self, output_format: str, json_data: str = "", json_file: str = "", input_mode: str = "direct"):
         """Extract images from Gemini API response."""
         parser = GeminiResponseParser()
-        images, _, metadata = parser.parse_response(json_data, True, False, output_format)
+        images, _, metadata = parser.parse_response(
+            extract_images=True,
+            extract_text=False,
+            output_format=output_format,
+            json_data=json_data,
+            json_file=json_file,
+            input_mode=input_mode
+        )
 
         # Create image-specific metadata
         image_info = {
@@ -244,8 +302,12 @@ class GeminiTextExtractor:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "json_data": ("STRING", {"multiline": True}),
                 "include_metadata": ("BOOLEAN", {"default": True}),
+            },
+            "optional": {
+                "json_data": ("STRING", {"multiline": True, "default": ""}),
+                "json_file": ("STRING", {"default": "", "tooltip": "Path to JSON file containing Gemini API response"}),
+                "input_mode": (["direct", "file"], {"default": "direct"}),
             }
         }
 
@@ -253,12 +315,19 @@ class GeminiTextExtractor:
     RETURN_NAMES = ("text", "text_info")
     FUNCTION = "extract_text"
     CATEGORY = "API/Gemini"
-    DESCRIPTION = "仅从Gemini API响应中提取文本内容。非常适合不需要图像的文本处理工作流。合并所有文本部分，可选择包含使用元数据，如token计数和响应ID。"
+    DESCRIPTION = "仅从Gemini API响应中提取文本内容。非常适合不需要图像的文本处理工作流。合并所有文本部分，可选择包含使用元数据，如token计数和响应ID。支持直接输入JSON字符串或从文件加载。"
 
-    def extract_text(self, json_data: str, include_metadata: bool):
+    def extract_text(self, include_metadata: bool, json_data: str = "", json_file: str = "", input_mode: str = "direct"):
         """Extract text from Gemini API response."""
         parser = GeminiResponseParser()
-        _, text, metadata = parser.parse_response(json_data, False, True, "tensor")
+        _, text, metadata = parser.parse_response(
+            extract_images=False,
+            extract_text=True,
+            output_format="tensor",
+            json_data=json_data,
+            json_file=json_file,
+            input_mode=input_mode
+        )
 
         text_info = {
             'parts_count': metadata['total_text_parts'],
@@ -279,8 +348,12 @@ class GeminiResponseAnalyzer:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "json_data": ("STRING", {"multiline": True}),
                 "detailed_analysis": ("BOOLEAN", {"default": True}),
+            },
+            "optional": {
+                "json_data": ("STRING", {"multiline": True, "default": ""}),
+                "json_file": ("STRING", {"default": "", "tooltip": "Path to JSON file containing Gemini API response"}),
+                "input_mode": (["direct", "file"], {"default": "direct"}),
             }
         }
 
@@ -288,72 +361,93 @@ class GeminiResponseAnalyzer:
     RETURN_NAMES = ("analysis", "summary")
     FUNCTION = "analyze_response"
     CATEGORY = "API/Gemini"
-    DESCRIPTION = "分析Gemini API响应结构而不提取内容。提供关于token使用情况、候选数量、内容类型和响应有效性的洞察。用于调试API响应或在处理前了解响应结构。"
+    DESCRIPTION = "分析Gemini API响应结构而不提取内容。提供关于token使用情况、候选数量、内容类型和响应有效性的洞察。用于调试API响应或在处理前了解响应结构。支持直接输入JSON字符串或从文件加载。"
 
-    def analyze_response(self, json_data: str, detailed_analysis: bool):
+    def analyze_response(self, detailed_analysis: bool, json_data: str = "", json_file: str = "", input_mode: str = "direct"):
         """Analyze Gemini API response structure."""
+
+        # Load JSON data based on input mode
         try:
-            data = json.loads(json_data)
+            if input_mode == "file":
+                if not json_file:
+                    error_msg = "Error: File path is empty when input_mode is 'file'"
+                    return ({'error': error_msg}, error_msg)
 
-            analysis = {
-                'model_version': data.get('modelVersion', 'Unknown'),
-                'response_id': data.get('responseId', 'Unknown'),
-                'usage_metadata': data.get('usageMetadata', {}),
-                'num_candidates': len(data.get('candidates', [])),
-                'candidates_info': []
-            }
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                source_info = {'source': 'file', 'file_path': json_file}
+            else:
+                if not json_data.strip():
+                    error_msg = "Error: JSON data is empty when input_mode is 'direct'"
+                    return ({'error': error_msg}, error_msg)
 
-            summary_parts = []
-            summary_parts.append(f"Model: {analysis['model_version']}")
-
-            # Usage metadata
-            if analysis['usage_metadata']:
-                usage = analysis['usage_metadata']
-                summary_parts.append(f"Total tokens: {usage.get('totalTokenCount', 'N/A')}")
-
-            # Candidates analysis
-            if 'candidates' in data:
-                summary_parts.append(f"Candidates: {len(data['candidates'])}")
-
-                for i, candidate in enumerate(data['candidates']):
-                    cand_info = {
-                        'index': candidate.get('index', i),
-                        'finish_reason': candidate.get('finishReason', 'Unknown'),
-                        'num_parts': 0,
-                        'has_text': False,
-                        'has_images': False
-                    }
-
-                    if 'content' in candidate and 'parts' in candidate['content']:
-                        parts = candidate['content']['parts']
-                        cand_info['num_parts'] = len(parts)
-
-                        for part in parts:
-                            if 'text' in part:
-                                cand_info['has_text'] = True
-                            elif 'inlineData' in part:
-                                cand_info['has_images'] = True
-
-                    analysis['candidates_info'].append(cand_info)
-
-                    if detailed_analysis:
-                        cand_summary = f"  Candidate {i}: {cand_info['num_parts']} parts"
-                        if cand_info['has_text']:
-                            cand_summary += " (text)"
-                        if cand_info['has_images']:
-                            cand_summary += " (images)"
-                        summary_parts.append(cand_summary)
-
-            summary = '\n'.join(summary_parts)
-
-            return (analysis, summary)
+                data = json.loads(json_data)
+                source_info = {'source': 'direct_input'}
 
         except json.JSONDecodeError as e:
             error_msg = f"Invalid JSON format: {str(e)}"
             return ({'error': error_msg}, error_msg)
-        except Exception as e:
-            error_msg = f"Error analyzing response: {str(e)}"
+        except FileNotFoundError:
+            error_msg = f"File not found: {json_file}"
             return ({'error': error_msg}, error_msg)
+        except Exception as e:
+            error_msg = f"Error reading file: {str(e)}"
+            return ({'error': error_msg}, error_msg)
+
+        # Process the loaded data
+        analysis = {
+            'model_version': data.get('modelVersion', 'Unknown'),
+            'response_id': data.get('responseId', 'Unknown'),
+            'usage_metadata': data.get('usageMetadata', {}),
+            'num_candidates': len(data.get('candidates', [])),
+            'candidates_info': [],
+            **source_info  # Add source information
+        }
+
+        summary_parts = []
+        summary_parts.append(f"Model: {analysis['model_version']}")
+
+        # Usage metadata
+        if analysis['usage_metadata']:
+            usage = analysis['usage_metadata']
+            summary_parts.append(f"Total tokens: {usage.get('totalTokenCount', 'N/A')}")
+
+        # Candidates analysis
+        if 'candidates' in data:
+            summary_parts.append(f"Candidates: {len(data['candidates'])}")
+
+            for i, candidate in enumerate(data['candidates']):
+                cand_info = {
+                    'index': candidate.get('index', i),
+                    'finish_reason': candidate.get('finishReason', 'Unknown'),
+                    'num_parts': 0,
+                    'has_text': False,
+                    'has_images': False
+                }
+
+                if 'content' in candidate and 'parts' in candidate['content']:
+                    parts = candidate['content']['parts']
+                    cand_info['num_parts'] = len(parts)
+
+                    for part in parts:
+                        if 'text' in part:
+                            cand_info['has_text'] = True
+                        elif 'inlineData' in part:
+                            cand_info['has_images'] = True
+
+                analysis['candidates_info'].append(cand_info)
+
+                if detailed_analysis:
+                    cand_summary = f"  Candidate {i}: {cand_info['num_parts']} parts"
+                    if cand_info['has_text']:
+                        cand_summary += " (text)"
+                    if cand_info['has_images']:
+                        cand_summary += " (images)"
+                    summary_parts.append(cand_summary)
+
+        summary = '\n'.join(summary_parts)
+
+        return (analysis, summary)
 
 
 # Node registration for ComfyUI

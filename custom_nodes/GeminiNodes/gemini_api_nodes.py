@@ -134,12 +134,15 @@ class GeminiImageGenerator:
                 'negative_prompt': negative_prompt if negative_prompt.strip() else None
             }
 
-            return images[0] if len(images) > 0 else torch.zeros((1, 3, 512, 512)), text_content, metadata
+            # Also return the raw JSON response for parsing nodes
+            api_response_json = json_str
+
+            return images[0] if len(images) > 0 else torch.zeros((1, 3, 512, 512)), text_content, api_response_json
 
         except Exception as e:
             error_msg = f"Error generating image: {str(e)}"
             logging.error(error_msg)
-            return torch.zeros((1, 3, 512, 512)), error_msg, {"error": error_msg}
+            return torch.zeros((1, 3, 512, 512)), error_msg, json.dumps({"error": error_msg})
 
     def _make_api_call(self, url: str, headers: Dict, payload: Dict, timeout: int) -> Dict:
         """Make synchronous API call"""
@@ -267,7 +270,7 @@ class GeminiTextToImageAdvanced:
             usage = metadata['usage_metadata']
             text_metadata += f"\nTokens: {usage.get('totalTokenCount', 'N/A')} total\n"
 
-        return images[0] if len(images) > 0 else torch.zeros((1, 3, 512, 512)), text_metadata, response_data
+        return images[0] if len(images) > 0 else torch.zeros((1, 3, 512, 512)), text_metadata, json.dumps(response_data)
 
     def _deep_merge(self, base: Dict, update: Dict):
         """Deep merge two dictionaries"""
